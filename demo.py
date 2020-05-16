@@ -1,7 +1,7 @@
 import threading
 import time
 import RPi.GPIO as GPIO
-import snowboydecoder
+# import snowboydecoder
 import sys
 import signal
 import os
