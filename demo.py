@@ -5,43 +5,97 @@ import snowboydecoder
 import sys
 import signal
 import os
+import pyaudio
+import numpy as np
 
+CHUNK = 2**11
+RATE = 44100
 interrupted = False
+audDetected = False
+shouldStop = False
 threads = list()
+p=pyaudio.PyAudio()
+stream=p.open(format=pyaudio.paInt16,channels=1,rate=RATE,input=True,
+              frames_per_buffer=CHUNK)
+example=0
 
-def playgoca():
-    time.sleep(2)
-    os.system('aplay -d 20 goca.wav')
+def playintro():
+    # time.sleep(2)
+    os.system('aplay -d 20 new.wav')
 
 def lightsStartEffect():
-    c = 0;
-    while c != 20:
+    c = 0
+    GPIO.output(24, GPIO.LOW)
+    time.sleep(2)
+    roomf()
+    while c != 140 and not shouldStop:
         c += 1
-        GPIO.output(25, GPIO.HIGH)
-        time.sleep(0.05)
-        GPIO.output(25, GPIO.LOW)
-        time.sleep(0.05)
-    GPIO.output(25, GPIO.LOW)
+        GPIO.output(24, GPIO.HIGH)
+        time.sleep(0.1)
+        GPIO.output(24, GPIO.LOW)
+        time.sleep(0.1)
 
 def confetti():
-    GPIO.output(25, GPIO.LOW)
+    GPIO.output(1, GPIO.LOW)
+
+def sinch():
+    GPIO.output(7, GPIO.LOW)
+
+def machineStart():
+    GPIO.output(23, GPIO.LOW)
+    time.delay(0.8)
+    GPIO.output(23, GPIO.HIGH)
 
 def angleg():
     GPIO.output(25, GPIO.LOW)
 
+def roomf():
+    GPIO.output(8, GPIO.LOW)
+    time.sleep(0.5)
+    GPIO.output(8, GPIO.HIGH)
+    time.sleep(0.5)
+    GPIO.output(8, GPIO.LOW)
+    time.sleep(0.5)
+    GPIO.output(8, GPIO.HIGH)
+    time.sleep(0.5)
+
 def drill():
     GPIO.output(25, GPIO.LOW)
+    time.sleep(2)
+    GPIO.output(25, GPIO.HIGH)
 
-def lights():
-    while not interrupted:
-        GPIO.output(25, GPIO.HIGH)
-        time.sleep(0.05)
-        GPIO.output(25, GPIO.LOW)
-        time.sleep(0.05)
-example=0
+def audioDetect():
+    while not interrupted and not audDetected:
+        data = np.fromstring(stream.read(CHUNK),dtype=np.int16)
+        peak=np.average(np.abs(data))*2
+        if peak > 10000:
+            audDetected = True
+            detected()
+        # bars="#"*int(50*peak/2**16)
+        # print("%04d %05d %s"%(i,peak,bars))
+    stream.stop_stream()
+    stream.close()
+    p.terminate()
+
+def startOthers():
+    delay(4)
+    machineStart()
+    angleg()
+    confetti()
+
+def stopEverything():
+    GPIO.output(25, GPIO.HIGH)
+    GPIO.output(8, GPIO.HIGH)
+    GPIO.output(24, GPIO.LOW)
+    GPIO.output(1, GPIO.HIGH)
+
+    time.delay(2)
+    GPIO.output(7, GPIO.LOW)
+    time.delay(0.05)
+    GPIO.output(7, GPIO.HIGH)
 
 def detected():
-    x = threading.Thread(target=playgoca, args=())
+    x = threading.Thread(target=playintro, args=())
     threads.append(x)
     x.start()
 
@@ -49,79 +103,46 @@ def detected():
     threads.append(y)
     y.start()
 
+    z = threading.Thread(target=startOthers, args=())
+    threads.append(z)
+    z.start()
+
+    delay(20)
+    stopEverything()
 
 def signal_handler(signal, frame):
     # example.stop()
     global interrupted
     interrupted = True
 
-
 def interrupt_callback():
     global interrupted
     return interrupted
 
-if len(sys.argv) == 1:
-    print("Error: need to specify model name")
-    print("Usage: python demo.py your.model")
-    sys.exit(-1)
-
 GPIO.setmode(GPIO.BCM)
-GPIO.setup(18, GPIO.OUT)
-GPIO.output(18, GPIO.HIGH)
+GPIO.setup(23, GPIO.OUT)
+GPIO.output(23, GPIO.HIGH)
 GPIO.setup(25, GPIO.OUT)
 GPIO.output(25, GPIO.LOW)
-TRIG=23
-ECHO=24
-GPIO.setup(TRIG, GPIO.OUT)
-GPIO.setup(ECHO, GPIO.IN)
+GPIO.setup(24, GPIO.OUT)
+GPIO.output(24, GPIO.LOW)
 
-GPIO.output(TRIG, False)
+GPIO.setup(8, GPIO.OUT)
+GPIO.output(8, GPIO.LOW)
+
+GPIO.setup(7, GPIO.OUT)
+GPIO.output(7, GPIO.LOW)
+
+GPIO.setup(1, GPIO.OUT)
+GPIO.output(1, GPIO.LOW)
+
 time.sleep(2)
 
-def disponce():
-    GPIO.output(18, GPIO.LOW)
-    GPIO.output(25, GPIO.HIGH)
-    time.sleep(0.15)
-    GPIO.output(18, GPIO.HIGH)
-    GPIO.output(25, GPIO.LOW)
-    time.sleep(5)
-
-def readDistace():
-    while not interrupted:
-        GPIO.output(TRIG, True)
-        time.sleep(0.00001)
-        GPIO.output(TRIG, False)
-        while GPIO.input(ECHO)==0:
-           pulse_start = time.time()
-
-        while GPIO.input(ECHO)==1:
-           pulse_end = time.time()
-
-        pulse_duration = pulse_end - pulse_start
-        distance = pulse_duration * 17150
-        distance = round(distance, 2)
-        print "Distance:",distance,"cm"
-        time.sleep(0.3)
-        if distance < 10:
-            disponce()
 
 
-y = threading.Thread(target=readDistace, args=())
+y = threading.Thread(target=audioDetect, args=())
 threads.append(y)
 y.start()
 
-
-model = sys.argv[1]
-
 # capture SIGINT signal, e.g., Ctrl+C
 signal.signal(signal.SIGINT, signal_handler)
-
-detector = snowboydecoder.HotwordDetector(model, sensitivity=0.5)
-print('Listening... Press Ctrl+C to exit')
-
-# main loop
-detector.start(detected_callback=detected,
-               interrupt_check=interrupt_callback,
-               sleep_time=0.03)
-
-detector.terminate()
