@@ -28,12 +28,13 @@ def lightsStartEffect():
     GPIO.output(24, GPIO.LOW)
     time.sleep(2)
     roomf()
-    while c != 140 and not shouldStop:
+    while c != 80 and not interrupted:
         c += 1
-        GPIO.output(24, GPIO.HIGH)
-        time.sleep(0.1)
         GPIO.output(24, GPIO.LOW)
-        time.sleep(0.1)
+        time.sleep(0.08)
+        GPIO.output(24, GPIO.HIGH)
+        time.sleep(0.08)
+    # stopEverything()
 
 def confetti():
     GPIO.output(1, GPIO.LOW)
@@ -43,7 +44,7 @@ def sinch():
 
 def machineStart():
     GPIO.output(23, GPIO.LOW)
-    time.delay(0.8)
+    time.sleep(0.8)
     GPIO.output(23, GPIO.HIGH)
 
 def angleg():
@@ -65,11 +66,12 @@ def drill():
     GPIO.output(25, GPIO.HIGH)
 
 def audioDetect():
+    global audDetected
     while not interrupted and not audDetected:
-        data = np.fromstring(stream.read(CHUNK),dtype=np.int16)
+        data = np.fromstring(stream.read(CHUNK, exception_on_overflow = False),dtype=np.int16)
         peak=np.average(np.abs(data))*2
-        if peak > 10000:
-            audDetected = True
+        if peak > 50000:
+            # global audDetected
             detected()
         # bars="#"*int(50*peak/2**16)
         # print("%04d %05d %s"%(i,peak,bars))
@@ -78,23 +80,29 @@ def audioDetect():
     p.terminate()
 
 def startOthers():
-    delay(4)
-    machineStart()
+    time.sleep(4)
     angleg()
     confetti()
 
 def stopEverything():
+    global interrupted
+    interrupted = True
     GPIO.output(25, GPIO.HIGH)
     GPIO.output(8, GPIO.HIGH)
     GPIO.output(24, GPIO.LOW)
     GPIO.output(1, GPIO.HIGH)
 
-    time.delay(2)
+    time.sleep(2)
     GPIO.output(7, GPIO.LOW)
-    time.delay(0.05)
+    time.sleep(0.05)
     GPIO.output(7, GPIO.HIGH)
 
 def detected():
+    stream.stop_stream()
+    stream.close()
+    p.terminate()
+    global audDetected
+    audDetected = True
     x = threading.Thread(target=playintro, args=())
     threads.append(x)
     x.start()
@@ -106,8 +114,9 @@ def detected():
     z = threading.Thread(target=startOthers, args=())
     threads.append(z)
     z.start()
+    machineStart()
 
-    delay(20)
+    time.sleep(10)
     stopEverything()
 
 def signal_handler(signal, frame):
@@ -123,18 +132,18 @@ GPIO.setmode(GPIO.BCM)
 GPIO.setup(23, GPIO.OUT)
 GPIO.output(23, GPIO.HIGH)
 GPIO.setup(25, GPIO.OUT)
-GPIO.output(25, GPIO.LOW)
+GPIO.output(25, GPIO.HIGH)
 GPIO.setup(24, GPIO.OUT)
-GPIO.output(24, GPIO.LOW)
+GPIO.output(24, GPIO.HIGH)
 
 GPIO.setup(8, GPIO.OUT)
-GPIO.output(8, GPIO.LOW)
+GPIO.output(8, GPIO.HIGH)
 
 GPIO.setup(7, GPIO.OUT)
-GPIO.output(7, GPIO.LOW)
+GPIO.output(7, GPIO.HIGH)
 
 GPIO.setup(1, GPIO.OUT)
-GPIO.output(1, GPIO.LOW)
+GPIO.output(1, GPIO.HIGH)
 
 time.sleep(2)
 
