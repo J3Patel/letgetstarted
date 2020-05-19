@@ -70,7 +70,7 @@ def audioDetect():
     while not interrupted and not audDetected:
         data = np.fromstring(stream.read(CHUNK, exception_on_overflow = False),dtype=np.int16)
         peak=np.average(np.abs(data))*2
-        if peak > 50000:
+        if peak > 30000:
             # global audDetected
             detected()
         # bars="#"*int(50*peak/2**16)
@@ -94,10 +94,11 @@ def stopEverything():
 
     time.sleep(2)
     GPIO.output(7, GPIO.LOW)
-    time.sleep(0.05)
+    time.sleep(0.1)
     GPIO.output(7, GPIO.HIGH)
 
 def detected():
+    time.sleep(2)
     stream.stop_stream()
     stream.close()
     p.terminate()
@@ -115,8 +116,10 @@ def detected():
     threads.append(z)
     z.start()
     machineStart()
-
-    time.sleep(10)
+    time.sleep(8)
+    GPIO.output(25, GPIO.HIGH)
+    GPIO.output(1, GPIO.HIGH)
+    time.sleep(6)
     stopEverything()
 
 def signal_handler(signal, frame):
